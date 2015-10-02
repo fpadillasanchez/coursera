@@ -168,6 +168,7 @@ public class BubbleActivity extends Activity {
 					}else{
 						BubbleView newBView = new BubbleView(getApplicationContext(),event.getX(),event.getY());
 						mFrame.addView(newBView);
+						bView.start();
 					}
 				}
 
@@ -324,18 +325,13 @@ public class BubbleActivity extends Activity {
 					// stop the BubbleView's Worker Thread. 
 					// Otherwise, request that the BubbleView be redrawn.
 
-					mDx = mDx + 1;
-					mDy = mDy + 1;
+					//we are still in the display
+					if(moveWhileOnScreen()){
+						BubbleView.this.postInvalidate();
 					//we are no longer in the display
-					if(mDx >mDisplayWidth && mDy > mDisplayHeight){
-						if(!mMoverFuture.isCancelled()|| !mMoverFuture.isDone()){
-							mMoverFuture.cancel(true);
-						}
+					}else if(isOutOfView()){
+						BubbleView.this.stop(false);
 					}
-
-					start();
-					
-					
 					
 
 				}
@@ -369,12 +365,12 @@ public class BubbleActivity extends Activity {
 				public void run() {
 
 					// TODO - Remove the BubbleView from mFrame
-					mFrame.removeView(getRootView());
+					mFrame.removeView(BubbleView.this);
 					
 					// DONE - If the bubble was popped by user,
 					// play the popping sound
 					if (wasPopped) {
-						mSoundPool.play(mSoundID,1.0f,1.0f,1,0,1.0f);
+						mSoundPool.play(mSoundID,mStreamVolume,mStreamVolume,1,0,1);
 					}
 				}
 			});
@@ -385,8 +381,9 @@ public class BubbleActivity extends Activity {
 
 			//DONE - set mDx and mDy to be the new velocities divided by the REFRESH_RATE
 			
-			velocityX = mDx/REFRESH_RATE;
-			velocityY = mDy/REFRESH_RATE;
+			mDx = velocityX/REFRESH_RATE;
+			mDy = velocityY/REFRESH_RATE;
+
 
 		}
 
@@ -399,19 +396,19 @@ public class BubbleActivity extends Activity {
 
 			
 			// DONE - increase the rotation of the original image by mDRotate
-			canvas.rotate(mDRotate);
+			mDRotate = mDRotate + 1;
 
 
 			
 			// DONE Rotate the canvas by current rotation
 			// Hint - Rotate around the bubble's center, not its position
 			//degree, px, py
-			canvas.rotate(mDRotate,mXPos,mYPos);
+			canvas.rotate(mDRotate,mXPos+mScaledBitmapWidth/2,mYPos+mScaledBitmapWidth/2);
 
 
 			
 			// DONE- draw the bitmap at its new location
-			canvas.drawBitmap(mBitmap,mDx,mDy,mPainter);
+			canvas.drawBitmap(mBitmap,mXPos,mYPos,mPainter);
 
 			
 			// DONE - restore the canvas
@@ -425,11 +422,11 @@ public class BubbleActivity extends Activity {
 		private synchronized boolean moveWhileOnScreen() {
 
 			// DONE - Move the BubbleView
-			if(mDx < mDisplayWidth && mDy < mDisplayHeight){
-				return true;
-			}
-
-			return false;
+			//current position plus movement
+			mXPos += mDx;
+			mYPos += mDy;
+			//after the movement, we could be outside, then
+			return !isOutOfView();
 		}
 
 		// Return true if the BubbleView is off the screen after the move
@@ -438,7 +435,7 @@ public class BubbleActivity extends Activity {
 
 			// DONE - Return true if the BubbleView is off the screen after
 			// the move operation
-			if(mDx > mDisplayWidth && mDy > mDisplayHeight){
+			if(mXPos > mDisplayWidth && mYPos > mDisplayHeight){
 				return true;
 			}
 
